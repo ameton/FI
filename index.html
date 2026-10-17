@@ -28,9 +28,7 @@
         <div class="filter-group">
             <span class="filter-label">월 필터:</span>
             <span class="chip active" data-month="" data-group="month">전체</span>
-            <span class="chip" data-month="10월" data-group="month">10월</span>
-            <span class="chip" data-month="11월" data-group="month">11월</span>
-            <span class="chip" data-month="12월" data-group="month">12월</span>
+            <span id="monthChipsContainer"></span>
         </div>
         <div class="filter-group">
             <span class="filter-label">선명 필터 (클릭하여 선택):</span>
@@ -55,8 +53,9 @@
 
     <script>
         $(document).ready(function() {
+            const ts = Date.now();
             // 마지막 업데이트 시간 표시
-            fetch('fishing_schedule.csv', { method: 'HEAD' })
+            fetch('fishing_schedule.csv?t=' + ts, { method: 'HEAD' })
                 .then(response => {
                     const lastModified = response.headers.get('Last-Modified');
                     if (lastModified) {
@@ -65,89 +64,111 @@
                     }
                 });
 
-            // 1. 일정 데이터 로드 (local csv)
-            fetch('available_schedules.csv')
-                .then(response => response.text())
-                .then(data => {
-                    const rows = data.trim().split('\n');
-                    const header = rows[0].split(',');
-                    header.push('링크');
+            // 1. 일정 데이터 로드 (local csv) 및 필터 리스트 로드
+            Promise.all([
+                fetch('available_schedules.csv?t=' + ts).then(r => r.text()),
+                fetch('ship.csv?t=' + ts).then(r => r.text()).catch(() => ''),
+                fetch('month.csv?t=' + ts).then(r => r.text()).catch(() => ''),
+                fetch('fish.csv?t=' + ts).then(r => r.text()).catch(() => '')
+            ]).then(([scheduleData, shipData, monthData, fishData]) => {
+                const rows = scheduleData.trim().split('\n');
+                const header = rows[0].split(',');
+                header.push('링크');
+                
+                const headerRow = $('#tableHeader');
+                header.forEach(h => headerRow.append(`<th>${h}</th>`));
+
+                const LINK_MAP = {
+                    '영심이호': 'https://0simi.sunsang24.com/ship/schedule_fleet',
+                    '청룡호': 'https://nokdong.sunsang24.com/ship/schedule_fleet',
+                    '하이스타피싱': 'https://higestar.sunsang24.com/ship/schedule_fleet',
+                    '유진호': 'https://www.eugeneho.kr/index.php?mid=bk'
+                };
+
+                const tbody = $('#tableBody');
+                for (let i = 1; i < rows.length; i++) {
+                    const cells = rows[i].split(',');
+                    if (cells.length < 12) continue; // Skip empty lines or malformed rows
+                    let rowHtml = '<tr>';
+                    cells.forEach(c => rowHtml += `<td>${c}</td>`);
                     
-                    const headerRow = $('#tableHeader');
-                    header.forEach(h => headerRow.append(`<th>${h}</th>`));
+                    const boatName = cells[3];
+                    const url = cells[11] || LINK_MAP[boatName] || '#';
+                    rowHtml += `<td><a href="${url}" target="_blank">바로가기</a></td>`;
+                    
+                    rowHtml += '</tr>';
+                    tbody.append(rowHtml);
+                }
 
-                    const LINK_MAP = {
-                        '영심이호': 'https://0simi.sunsang24.com/ship/schedule_fleet',
-                        '청룡호': 'https://nokdong.sunsang24.com/ship/schedule_fleet',
-                        '하이스타피싱': 'https://higestar.sunsang24.com/ship/schedule_fleet',
-                        '유진호': 'https://www.eugeneho.kr/index.php?mid=bk'
-                    };
-
-                    const tbody = $('#tableBody');
-                    const boats = new Set();
-                    const fishTypes = new Set();
-                    for (let i = 1; i < rows.length; i++) {
-                        const cells = rows[i].split(',');
-                        if (cells.length < 12) continue; // Skip empty lines or malformed rows
-                        boats.add(cells[3]); 
-                        fishTypes.add(cells[5]);
-                        let rowHtml = '<tr>';
-                        cells.forEach(c => rowHtml += `<td>${c}</td>`);
-                        
-                        const boatName = cells[3];
-                        const url = cells[11] || LINK_MAP[boatName] || '#';
-                        rowHtml += `<td><a href="${url}" target="_blank">바로가기</a></td>`;
-                        
-                        rowHtml += '</tr>';
-                        tbody.append(rowHtml);
+                if (shipData) {
+                    const boatContainer = $('#boatChipsContainer').empty();
+                    const lines = shipData.trim().split('\n');
+                    for (let i = 1; i < lines.length; i++) {
+                        const boat = lines[i].trim();
+                        if (boat) {
+                            boatContainer.append(`<span class="chip boat-chip active" data-boat="${boat}">${boat}</span>`);
+                        }
                     }
+                }
 
-                    const boatContainer = $('#boatChipsContainer');
-                    boats.forEach(boat => {
-                        boatContainer.append(`<span class="chip boat-chip active" data-boat="${boat}">${boat}</span>`);
-                    });
+                if (monthData) {
+                    const monthContainer = $('#monthChipsContainer').empty();
+                    const lines = monthData.trim().split('\n');
+                    for (let i = 1; i < lines.length; i++) {
+                        const m = lines[i].trim();
+                        if (m) {
+                            monthContainer.append(`<span class="chip" data-month="${m}" data-group="month">${m}</span>`);
+                        }
+                    }
+                }
 
-                    const fishContainer = $('#fishChipsContainer');
-                    fishTypes.forEach(fish => {
-                        fishContainer.append(`<span class="chip fish-chip active" data-fish="${fish}">${fish}</span>`);
-                    });
+                if (fishData) {
+                    const fishContainer = $('#fishChipsContainer').empty();
+                    const lines = fishData.trim().split('\n');
+                    for (let i = 1; i < lines.length; i++) {
+                        const fish = lines[i].trim();
+                        if (fish) {
+                            fishContainer.append(`<span class="chip fish-chip active" data-fish="${fish}">${fish}</span>`);
+                        }
+                    }
+                }
 
-                    const table = $('#scheduleTable').DataTable({
-                        pageLength: 100,
-                        select: { style: 'multi' },
-                        language: { search: "검색:", lengthMenu: "_MENU_ 건씩 보기", info: "_START_ - _END_ / 총 _TOTAL_ 건" }
-                    });
-
-                    // Monthly Filters
-                    $('[data-group="month"]').on('click', function() {
-                        $('[data-group="month"]').removeClass('active');
-                        $(this).addClass('active');
-                        let val = $(this).data('month');
-                        table.column(0).search(val ? '^' + val : '', true, false).draw();
-                    });
-
-                    // Boat Filters
-                    $('.boat-chip').on('click', function() {
-                        $(this).toggleClass('active');
-                        const activeBoats = $('.boat-chip.active').map(function() {
-                            return '^' + $(this).data('boat') + '$';
-                        }).get();
-                        
-                        const search = activeBoats.length > 0 ? activeBoats.join('|') : '^$';
-                        table.column(3).search(search, true, false).draw();
-                    });
-
-                    // Fish Filters
-                    $('.fish-chip').on('click', function() {
-                        $(this).toggleClass('active');
-                        const activeFish = $('.fish-chip.active').map(function() {
-                            return '^' + $(this).data('fish') + '$';
-                        }).get();
-                        
-                        const search = activeFish.length > 0 ? activeFish.join('|') : '^$';
-                        table.column(5).search(search, true, false).draw();
-                    });
+                const table = $('#scheduleTable').DataTable({
+                    pageLength: 100,
+                    select: { style: 'multi' },
+                    language: { search: "검색:", lengthMenu: "_MENU_ 건씩 보기", info: "_START_ - _END_ / 총 _TOTAL_ 건" }
                 });
+
+                // Monthly Filters
+                $(document).on('click', '[data-group="month"]', function() {
+                    $('[data-group="month"]').removeClass('active');
+                    $(this).addClass('active');
+                    let val = $(this).data('month');
+                    table.column(0).search(val ? '^' + val : '', true, false).draw();
+                });
+
+                // Boat Filters
+                $(document).on('click', '.boat-chip', function() {
+                    $(this).toggleClass('active');
+                    const activeBoats = $('.boat-chip.active').map(function() {
+                        return '^' + $(this).data('boat') + '$';
+                    }).get();
+                    
+                    const search = activeBoats.length > 0 ? activeBoats.join('|') : '^$';
+                    table.column(3).search(search, true, false).draw();
+                });
+
+                // Fish Filters
+                $(document).on('click', '.fish-chip', function() {
+                    $(this).toggleClass('active');
+                    const activeFish = $('.fish-chip.active').map(function() {
+                        return '^' + $(this).data('fish') + '$';
+                    }).get();
+                    
+                    const search = activeFish.length > 0 ? activeFish.join('|') : '^$';
+                    table.column(5).search(search, true, false).draw();
+                });
+            });
         });
     </script>
 </body>
