@@ -7,19 +7,32 @@
     <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.13.6/css/jquery.dataTables.min.css">
     <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/select/1.7.0/css/select.dataTables.min.css">
     <style>
-        body { font-family: sans-serif; margin: 20px; }
-        #scheduleTable { width: 100%; }
-        .filter-btn { margin-right: 5px; padding: 5px 15px; cursor: pointer; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 30px; background-color: #f8f9fa; color: #333; }
+        h1 { color: #2c3e50; }
+        .controls { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-bottom: 20px; }
+        .filter-group { margin-bottom: 10px; }
+        select, button { padding: 8px 12px; border-radius: 4px; border: 1px solid #ddd; }
+        button { cursor: pointer; background-color: #3498db; color: white; border: none; }
+        button:hover { background-color: #2980b9; }
+        #scheduleTable { background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .dataTables_wrapper .dataTables_paginate .paginate_button.current { background: #3498db !important; color: white !important; }
     </style>
 </head>
 <body>
     <h1>예약 가능한 낚시 일정</h1>
     
-    <div id="monthFilters" style="margin-bottom: 20px;">
-        <button class="filter-btn" data-month="">전체</button>
-        <button class="filter-btn" data-month="10월">10월</button>
-        <button class="filter-btn" data-month="11월">11월</button>
-        <button class="filter-btn" data-month="12월">12월</button>
+    <div class="controls">
+        <div class="filter-group">
+            <label>월 필터:</label>
+            <button class="filter-btn" data-month="">전체</button>
+            <button class="filter-btn" data-month="10월">10월</button>
+            <button class="filter-btn" data-month="11월">11월</button>
+            <button class="filter-btn" data-month="12월">12월</button>
+        </div>
+        <div class="filter-group">
+            <label>선명 필터 (멀티 선택):</label>
+            <select id="boatSelect" multiple style="width: 200px; height: 35px;"></select>
+        </div>
     </div>
 
     <table id="scheduleTable" class="display">
@@ -46,40 +59,46 @@
                     const headerRow = $('#tableHeader');
                     header.forEach(h => headerRow.append(`<th>${h}</th>`));
 
-                    // 테이블 바디
+                    // 테이블 바디 및 선명 리스트 추출
                     const tbody = $('#tableBody');
+                    const boats = new Set();
                     for (let i = 1; i < rows.length; i++) {
                         const cells = rows[i].split(',');
+                        boats.add(cells[3]); // 선명 컬럼 (인덱스 3)
                         let rowHtml = '<tr>';
                         cells.forEach(c => rowHtml += `<td>${c}</td>`);
                         rowHtml += '</tr>';
                         tbody.append(rowHtml);
                     }
 
+                    // 선명 풀다운 메뉴 채우기
+                    const boatSelect = $('#boatSelect');
+                    boats.forEach(boat => boatSelect.append(`<option value="${boat}">${boat}</option>`));
+
                     // DataTables 초기화
                     const table = $('#scheduleTable').DataTable({
-                        pageLength: 100, // 기본 100개씩 보기
-                        select: {
-                            style: 'multi' // 멀티 셀렉션
-                        },
+                        pageLength: 100, // 100개씩 보기 적용
+                        select: { style: 'multi' }, // 멀티 셀렉션
                         language: {
                             search: "검색:",
                             lengthMenu: "_MENU_ 개씩 보기",
                             info: "_START_ - _END_ / 총 _TOTAL_ 건",
-                            paginate: {
-                                first: "처음",
-                                last: "끝",
-                                next: "다음",
-                                previous: "이전"
-                            }
+                            paginate: { first: "처음", last: "끝", next: "다음", previous: "이전" }
                         }
                     });
 
                     // 월 필터 버튼 로직
                     $('.filter-btn').on('click', function() {
                         let val = $(this).data('month');
-                        // 날짜 컬럼(0번)에 대해 필터 적용 (^는 시작문자 일치)
                         table.column(0).search(val ? '^' + val : '', true, false).draw();
+                    });
+
+                    // 선명 필터 로직
+                    $('#boatSelect').on('change', function() {
+                        const selected = $(this).val();
+                        // 선택된 선명들을 정규식으로 합침 (예: ^영심이호$|^청룡호$)
+                        const search = selected ? selected.map(s => '^' + s + '$').join('|') : '';
+                        table.column(3).search(search, true, false).draw();
                     });
                 });
         });
