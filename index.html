@@ -5,13 +5,23 @@
     <title>예약 가능한 낚시 일정</title>
     <!-- DataTables CSS -->
     <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.13.6/css/jquery.dataTables.min.css">
+    <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/select/1.7.0/css/select.dataTables.min.css">
     <style>
         body { font-family: sans-serif; margin: 20px; }
         #scheduleTable { width: 100%; }
+        .filter-btn { margin-right: 5px; padding: 5px 15px; cursor: pointer; }
     </style>
 </head>
 <body>
     <h1>예약 가능한 낚시 일정</h1>
+    
+    <div id="monthFilters" style="margin-bottom: 20px;">
+        <button class="filter-btn" data-month="">전체</button>
+        <button class="filter-btn" data-month="10월">10월</button>
+        <button class="filter-btn" data-month="11월">11월</button>
+        <button class="filter-btn" data-month="12월">12월</button>
+    </div>
+
     <table id="scheduleTable" class="display">
         <thead>
             <tr id="tableHeader"></tr>
@@ -19,9 +29,10 @@
         <tbody id="tableBody"></tbody>
     </table>
 
-    <!-- jQuery and DataTables JS -->
+    <!-- jQuery, DataTables, Select Extension -->
     <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
     <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
+    <script src="https://cdn.datatables.net/select/1.7.0/js/dataTables.select.min.js"></script>
 
     <script>
         $(document).ready(function() {
@@ -46,7 +57,11 @@
                     }
 
                     // DataTables 초기화
-                    $('#scheduleTable').DataTable({
+                    const table = $('#scheduleTable').DataTable({
+                        pageLength: 100, // 기본 100개씩 보기
+                        select: {
+                            style: 'multi' // 멀티 셀렉션
+                        },
                         language: {
                             search: "검색:",
                             lengthMenu: "_MENU_ 개씩 보기",
@@ -58,6 +73,13 @@
                                 previous: "이전"
                             }
                         }
+                    });
+
+                    // 월 필터 버튼 로직
+                    $('.filter-btn').on('click', function() {
+                        let val = $(this).data('month');
+                        // 날짜 컬럼(0번)에 대해 필터 적용 (^는 시작문자 일치)
+                        table.column(0).search(val ? '^' + val : '', true, false).draw();
                     });
                 });
         });
