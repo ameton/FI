@@ -2,52 +2,65 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>예약 가능한 낚시 일정</title>
+    <!-- DataTables CSS -->
+    <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.13.6/css/jquery.dataTables.min.css">
     <style>
         body { font-family: sans-serif; margin: 20px; }
-        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-        th, td { border: 1px solid #ddd; padding: 8px; text-align: center; }
-        th { background-color: #f2f2f2; }
+        #scheduleTable { width: 100%; }
     </style>
 </head>
 <body>
     <h1>예약 가능한 낚시 일정</h1>
-    <table id="scheduleTable">
+    <table id="scheduleTable" class="display">
         <thead>
             <tr id="tableHeader"></tr>
         </thead>
         <tbody id="tableBody"></tbody>
     </table>
 
-    <script>
-        fetch('available_schedules.csv')
-            .then(response => response.text())
-            .then(data => {
-                const rows = data.trim().split('\n');
-                const header = rows[0].split(',');
-                
-                // 테이블 헤더 생성
-                const headerRow = document.getElementById('tableHeader');
-                header.forEach(h => {
-                    const th = document.createElement('th');
-                    th.textContent = h;
-                    headerRow.appendChild(th);
-                });
+    <!-- jQuery and DataTables JS -->
+    <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
+    <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
 
-                // 테이블 본문 생성
-                const tbody = document.getElementById('tableBody');
-                for (let i = 1; i < rows.length; i++) {
-                    const cells = rows[i].split(',');
-                    const tr = document.createElement('tr');
-                    cells.forEach(c => {
-                        const td = document.createElement('td');
-                        td.textContent = c;
-                        tr.appendChild(td);
+    <script>
+        $(document).ready(function() {
+            fetch('available_schedules.csv')
+                .then(response => response.text())
+                .then(data => {
+                    const rows = data.trim().split('\n');
+                    const header = rows[0].split(',');
+                    
+                    // 테이블 헤더
+                    const headerRow = $('#tableHeader');
+                    header.forEach(h => headerRow.append(`<th>${h}</th>`));
+
+                    // 테이블 바디
+                    const tbody = $('#tableBody');
+                    for (let i = 1; i < rows.length; i++) {
+                        const cells = rows[i].split(',');
+                        let rowHtml = '<tr>';
+                        cells.forEach(c => rowHtml += `<td>${c}</td>`);
+                        rowHtml += '</tr>';
+                        tbody.append(rowHtml);
+                    }
+
+                    // DataTables 초기화
+                    $('#scheduleTable').DataTable({
+                        language: {
+                            search: "검색:",
+                            lengthMenu: "_MENU_ 개씩 보기",
+                            info: "_START_ - _END_ / 총 _TOTAL_ 건",
+                            paginate: {
+                                first: "처음",
+                                last: "끝",
+                                next: "다음",
+                                previous: "이전"
+                            }
+                        }
                     });
-                    tbody.appendChild(tr);
-                }
-            });
+                });
+        });
     </script>
 </body>
 </html>
