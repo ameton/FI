@@ -51,11 +51,8 @@
 
     <script>
         $(document).ready(function() {
-            // 구글 시트 CSV URL
-            const GOOGLE_SHEET_CSV_URL = 'https://docs.google.com/spreadsheets/d/1JE9MjoeFgVlLkHWAotMZTWFgO6N3fqwroxVyogwO4JM/gviz/tq?tqx=out:csv';
-            
-            // 1. 일정 데이터 로드 (구글 시트 연동)
-            fetch(GOOGLE_SHEET_CSV_URL)
+            // 1. 일정 데이터 로드 (local csv)
+            fetch('available_schedules.csv')
                 .then(response => response.text())
                 .then(data => {
                     const rows = data.trim().split('\n');
