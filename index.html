@@ -95,7 +95,7 @@
                         cells.forEach(c => rowHtml += `<td>${c}</td>`);
                         
                         const boatName = cells[3];
-                        const url = LINK_MAP[boatName] || '#';
+                        const url = cells[11] || LINK_MAP[boatName] || '#';
                         rowHtml += `<td><a href="${url}" target="_blank">바로가기</a></td>`;
                         
                         rowHtml += '</tr>';
