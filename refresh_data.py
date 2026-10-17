@@ -174,6 +174,32 @@ def fetch_and_parse_all():
                 print(f"Error parsing {url}: {e}")
                 
     return header, all_rows
+def parse_schedule_rows(rows):
+    schedule_dict = {}
+    for r in rows:
+        r = r.strip()
+        if not r:
+            continue
+        cells = r.split(',')
+        if len(cells) >= 12:
+            key = (cells[3], cells[0], cells[5], cells[11])
+            schedule_dict[key] = {
+                'row_str': r,
+                '날짜': cells[0],
+                '요일': cells[1],
+                '물때': cells[2],
+                '선명': cells[3],
+                '선사위치': cells[4],
+                '대상어종': cells[5],
+                '상태': cells[6],
+                '예약좌석수': cells[7],
+                '총좌석수': cells[8],
+                '잔여석': cells[9],
+                '예약가능여부': cells[10],
+                '링크': cells[11]
+            }
+    return schedule_dict
+
 def git_push(message):
     """ Push changes if there are any """
     status = subprocess.run(['git', 'status', '--porcelain'], capture_output=True, text=True)
@@ -183,7 +209,18 @@ def git_push(message):
 
     try:
         print(f"[{datetime.now()}] Git push started...")
-        subprocess.run(['git', 'add', SCHEDULE_FILE, AVAILABLE_FILE, SITE_LIST_FILE, 'ship.csv', 'fish.csv'], check=True)
+        add_files = [SCHEDULE_FILE, AVAILABLE_FILE, SITE_LIST_FILE, 'ship.csv', 'fish.csv']
+        if os.path.exists('refresh.log'):
+            add_files.append('refresh.log')
+        subprocess.run(['git', 'add'] + add_files, check=True)
+        
+        # Check if there are actually staged changes
+        staged = subprocess.run(['git', 'diff', '--cached', '--quiet'])
+        if staged.returncode == 0:
+            print(f"[{datetime.now()}] No changes in data files to commit.")
+            subprocess.run(['git', 'reset'], capture_output=True)
+            return
+
         subprocess.run(['git', 'commit', '-m', message], check=True)
         subprocess.run(['git', 'push', 'origin', 'main'], check=True)
         print(f"[{datetime.now()}] Git push completed.")
@@ -200,11 +237,86 @@ def update_data():
         f.write(header + "\n")
         f.write("\n".join(rows) + "\n")
     
+    # Filter available rows
+    filtered_rows = [row for row in rows if row.split(',')[10] == 'Y']
+
+    # Check changes in available_schedules.csv before updating
+    old_dict = {}
+    if os.path.exists(AVAILABLE_FILE):
+        try:
+            with open(AVAILABLE_FILE, 'r', encoding='utf-8') as f:
+                lines = [line.strip() for line in f if line.strip()]
+                if lines:
+                    old_dict = parse_schedule_rows(lines[1:])
+        except Exception as e:
+            print(f"[{datetime.now()}] Error reading old {AVAILABLE_FILE}: {e}")
+
+    new_dict = parse_schedule_rows(filtered_rows)
+
+    old_keys = set(old_dict.keys())
+    new_keys = set(new_dict.keys())
+
+    added_keys = new_keys - old_keys
+    removed_keys = old_keys - new_keys
+    common_keys = old_keys & new_keys
+
+    modified_items = []
+    for k in common_keys:
+        old_item = old_dict[k]
+        new_item = new_dict[k]
+        changes = []
+        fields_to_check = [('상태', '상태'), ('잔여석', '잔여석'), ('예약좌석수', '예약좌석수'), ('총좌석수', '총좌석수'), ('물때', '물때')]
+        for field_name, field_key in fields_to_check:
+            if old_item[field_key] != new_item[field_key]:
+                changes.append(f"{field_name}: {old_item[field_key]} -> {new_item[field_key]}")
+        if changes:
+            modified_items.append({
+                'key': k,
+                'changes': changes,
+                'new_item': new_item
+            })
+
+    if not os.path.exists(AVAILABLE_FILE):
+        timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        log_content = f"=== [초기화] 시각: {timestamp} ===\navailable_schedules.csv 최초 생성됨 (총 {len(new_dict)}건)\n\n"
+        with open('refresh.log', 'a', encoding='utf-8') as f:
+            f.write(log_content)
+        print(f"[{datetime.now()}] available_schedules.csv initialized with {len(new_dict)} schedules.")
+    elif added_keys or removed_keys or modified_items:
+        timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        log_lines = []
+        log_lines.append(f"=== [변경 감지] 시각: {timestamp} ===")
+
+        if added_keys:
+            log_lines.append(f"[새로 예약 가능해진 일정] ({len(added_keys)}건)")
+            for k in sorted(added_keys):
+                item = new_dict[k]
+                log_lines.append(f"  + [{item['선명']}] {item['날짜']} ({item['대상어종']}) - 물때: {item['물때']}, 상태: {item['상태']}, 잔여석: {item['잔여석']}/{item['총좌석수']}")
+
+        if removed_keys:
+            log_lines.append(f"[예약 마감되거나 제외된 일정] ({len(removed_keys)}건)")
+            for k in sorted(removed_keys):
+                item = old_dict[k]
+                log_lines.append(f"  - [{item['선명']}] {item['날짜']} ({item['대상어종']}) - 이전 상태: {item['상태']}, 잔여석: {item['잔여석']}/{item['총좌석수']}")
+
+        if modified_items:
+            log_lines.append(f"[정보 변경된 일정] ({len(modified_items)}건)")
+            for mod in modified_items:
+                item = mod['new_item']
+                change_str = ", ".join(mod['changes'])
+                log_lines.append(f"  * [{item['선명']}] {item['날짜']} ({item['대상어종']}) -> {change_str}")
+
+        log_lines.append("")
+        log_content = "\n".join(log_lines) + "\n"
+        with open('refresh.log', 'a', encoding='utf-8') as f:
+            f.write(log_content)
+        print(f"[{datetime.now()}] available_schedules.csv changes detected and logged to refresh.log.")
+    else:
+        print(f"[{datetime.now()}] available_schedules.csv: No changes detected.")
+
     # Save available_schedules.csv
     with open(AVAILABLE_FILE, 'w', encoding='utf-8') as f:
         f.write(header + "\n")
-        # Check column index 10 (0-indexed) for 'Y'
-        filtered_rows = [row for row in rows if row.split(',')[10] == 'Y']
         f.write("\n".join(filtered_rows) + "\n")
 
     # Generate ship.csv, fish.csv
