@@ -36,6 +36,10 @@
             <span class="filter-label">선명 필터 (클릭하여 선택):</span>
             <div id="boatChipsContainer"></div>
         </div>
+        <div class="filter-group">
+            <span class="filter-label">대상어종 필터 (클릭하여 선택):</span>
+            <div id="fishChipsContainer"></div>
+        </div>
     </div>
 
     <table id="scheduleTable" class="display">
@@ -67,17 +71,33 @@
                 .then(data => {
                     const rows = data.trim().split('\n');
                     const header = rows[0].split(',');
+                    header.push('링크');
                     
                     const headerRow = $('#tableHeader');
                     header.forEach(h => headerRow.append(`<th>${h}</th>`));
 
+                    const LINK_MAP = {
+                        '영심이호': 'https://0simi.sunsang24.com/ship/schedule_fleet',
+                        '청룡호': 'https://nokdong.sunsang24.com/ship/schedule_fleet',
+                        '하이스타피싱': 'https://higestar.sunsang24.com/ship/schedule_fleet',
+                        '유진호': 'https://www.eugeneho.kr/index.php?mid=bk'
+                    };
+
                     const tbody = $('#tableBody');
                     const boats = new Set();
+                    const fishTypes = new Set();
                     for (let i = 1; i < rows.length; i++) {
                         const cells = rows[i].split(',');
+                        if (cells.length < 12) continue; // Skip empty lines or malformed rows
                         boats.add(cells[3]); 
+                        fishTypes.add(cells[5]);
                         let rowHtml = '<tr>';
                         cells.forEach(c => rowHtml += `<td>${c}</td>`);
+                        
+                        const boatName = cells[3];
+                        const url = LINK_MAP[boatName] || '#';
+                        rowHtml += `<td><a href="${url}" target="_blank">바로가기</a></td>`;
+                        
                         rowHtml += '</tr>';
                         tbody.append(rowHtml);
                     }
@@ -85,6 +105,11 @@
                     const boatContainer = $('#boatChipsContainer');
                     boats.forEach(boat => {
                         boatContainer.append(`<span class="chip boat-chip active" data-boat="${boat}">${boat}</span>`);
+                    });
+
+                    const fishContainer = $('#fishChipsContainer');
+                    fishTypes.forEach(fish => {
+                        fishContainer.append(`<span class="chip fish-chip active" data-fish="${fish}">${fish}</span>`);
                     });
 
                     const table = $('#scheduleTable').DataTable({
@@ -110,6 +135,17 @@
                         
                         const search = activeBoats.length > 0 ? activeBoats.join('|') : '^$';
                         table.column(3).search(search, true, false).draw();
+                    });
+
+                    // Fish Filters
+                    $('.fish-chip').on('click', function() {
+                        $(this).toggleClass('active');
+                        const activeFish = $('.fish-chip.active').map(function() {
+                            return '^' + $(this).data('fish') + '$';
+                        }).get();
+                        
+                        const search = activeFish.length > 0 ? activeFish.join('|') : '^$';
+                        table.column(5).search(search, true, false).draw();
                     });
                 });
         });
