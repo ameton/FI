@@ -114,15 +114,12 @@
                     }
                 }
 
-                if (monthData) {
-                    const monthContainer = $('#monthChipsContainer').empty();
-                    const lines = monthData.trim().split('\n');
-                    for (let i = 1; i < lines.length; i++) {
-                        const m = lines[i].trim();
-                        if (m) {
-                            monthContainer.append(`<span class="chip" data-month="${m}" data-group="month">${m}</span>`);
-                        }
-                    }
+                const monthContainer = $('#monthChipsContainer').empty();
+                const now = new Date();
+                for (let i = 0; i < 3; i++) {
+                    const d = new Date(now.getFullYear(), now.getMonth() + i, 1);
+                    const mStr = (d.getMonth() + 1) + '월';
+                    monthContainer.append(`<span class="chip" data-month="${mStr}" data-group="month">${mStr}</span>`);
                 }
 
                 if (fishData) {
