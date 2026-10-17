@@ -71,9 +71,8 @@
             Promise.all([
                 fetch('available_schedules.csv?t=' + ts).then(r => r.text()),
                 fetch('ship.csv?t=' + ts).then(r => r.text()).catch(() => ''),
-                fetch('month.csv?t=' + ts).then(r => r.text()).catch(() => ''),
                 fetch('fish.csv?t=' + ts).then(r => r.text()).catch(() => '')
-            ]).then(([scheduleData, shipData, monthData, fishData]) => {
+            ]).then(([scheduleData, shipData, fishData]) => {
                 const rows = scheduleData.trim().split('\n');
                 const header = rows[0].split(',');
                 header.push('링크');

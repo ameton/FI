@@ -183,7 +183,7 @@ def git_push(message):
 
     try:
         print(f"[{datetime.now()}] Git push started...")
-        subprocess.run(['git', 'add', SCHEDULE_FILE, AVAILABLE_FILE], check=True)
+        subprocess.run(['git', 'add', SCHEDULE_FILE, AVAILABLE_FILE, SITE_LIST_FILE, 'ship.csv', 'fish.csv'], check=True)
         subprocess.run(['git', 'commit', '-m', message], check=True)
         subprocess.run(['git', 'push', 'origin', 'main'], check=True)
         print(f"[{datetime.now()}] Git push completed.")
@@ -206,6 +206,25 @@ def update_data():
         # Check column index 10 (0-indexed) for 'Y'
         filtered_rows = [row for row in rows if row.split(',')[10] == 'Y']
         f.write("\n".join(filtered_rows) + "\n")
+
+    # Generate ship.csv, fish.csv
+    boats = []
+    fishes = []
+    for row in rows:
+        cells = row.split(',')
+        if len(cells) >= 12:
+            boat_name = cells[3]
+            fish_name = cells[5]
+            if boat_name and boat_name not in boats:
+                boats.append(boat_name)
+            if fish_name and fish_name not in fishes:
+                fishes.append(fish_name)
+
+    with open('ship.csv', 'w', encoding='utf-8') as f:
+        f.write("선명\n" + "\n".join(boats) + "\n")
+
+    with open('fish.csv', 'w', encoding='utf-8') as f:
+        f.write("대상어종\n" + "\n".join(fishes) + "\n")
 
 
     # Push changes
