@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>예약 가능한 낚시 일정</title>
+    <style>
+        body { font-family: sans-serif; margin: 20px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: center; }
+        th { background-color: #f2f2f2; }
+    </style>
+</head>
+<body>
+    <h1>예약 가능한 낚시 일정</h1>
+    <table id="scheduleTable">
+        <thead>
+            <tr id="tableHeader"></tr>
+        </thead>
+        <tbody id="tableBody"></tbody>
+    </table>
+
+    <script>
+        fetch('available_schedules.csv')
+            .then(response => response.text())
+            .then(data => {
+                const rows = data.trim().split('\n');
+                const header = rows[0].split(',');
+                
+                // 테이블 헤더 생성
+                const headerRow = document.getElementById('tableHeader');
+                header.forEach(h => {
+                    const th = document.createElement('th');
+                    th.textContent = h;
+                    headerRow.appendChild(th);
+                });
+
+                // 테이블 본문 생성
+                const tbody = document.getElementById('tableBody');
+                for (let i = 1; i < rows.length; i++) {
+                    const cells = rows[i].split(',');
+                    const tr = document.createElement('tr');
+                    cells.forEach(c => {
+                        const td = document.createElement('td');
+                        td.textContent = c;
+                        tr.appendChild(td);
+                    });
+                    tbody.appendChild(tr);
+                }
+            });
+    </script>
+</body>
+</html>
